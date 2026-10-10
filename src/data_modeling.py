@@ -161,3 +161,13 @@ class Item:
     health: Decimal | None = None
     channels: list[str] | None = None
     bundle: Any | None = None
+
+
+@dataclass
+class Credentials:
+    client_id: str | None
+    secret_key: str | None
+    access_token: str | None
+    refresh_token: str | None
+    access_token_expiration_date: str | None
+    refresh_token_expiration_date: str | None
