@@ -1,7 +1,12 @@
-import config
-from dataclasses import fields
+import csv
 import logging
-from data_modeling import Credentials
+from datetime import UTC, datetime
+
+import config
+from api import MercadoLibreClientHandler
+from data_management import DatabaseHandler
+from data_modeling import ProductsQueryRawOutput
+from transformations import get_product_ids
 
 
 def create_logging():
@@ -14,23 +19,67 @@ def create_logging():
     logger.addHandler(console_log_handler)
 
 
-def load_credentials_data(values: dict[str, str | None]) -> Credentials | None:
-    target_fields: list[str] = [f.name for f in fields(Credentials)]
-    target_values: dict[str, str] = {
-        k.lower(): v
-        for (k, v) in values.items()
-        if k.lower() in target_fields and v != None
-    }
-    try:
-        creds: Credentials = Credentials(**target_values)
-    except Exception as e:
-        logger.error("Unable to retrieve data from .env: %s", e)
-        return None
-    else:
-        return creds
+def extraction():
+    csm: config.CredentialStoreManager = config.CredentialStoreManager(
+        config.DOT_ENV_FILE
+    )
+    ml_client: MercadoLibreClientHandler = MercadoLibreClientHandler(csm)
+    ml_client.ensure_access_token()
+    for page in ml_client.paginated_query(
+        url=config.SEARCH_ENDPOINT,
+        pagination=config.PAGINATION_SIZE,
+        offset=0,
+        max_results=100,
+        site_id="MLA",
+        status="active",
+        q=config.TARGET_MODEL,
+        condition="new",
+    ):
+        try:
+            page.update({"job_run": job_run, "endpoint": config.SEARCH_ENDPOINT})
+            output = ProductsQueryRawOutput(**page)
+            dbh.insert(output)
+        except Exception as e:
+            logger.error("Can't complete all requests: %s", e)
+
+
+def extraction_itens(ids: set[str]):
+    csm: config.CredentialStoreManager = config.CredentialStoreManager(
+        config.DOT_ENV_FILE
+    )
+    ml_client: MercadoLibreClientHandler = MercadoLibreClientHandler(csm)
+    ml_client.ensure_access_token()
+    for page in ml_client.paginated_query(
+        url=config.ITENS_ENDPOINT,
+        pagination=config.PAGINATION_SIZE,
+        # offset=0,
+        keywords=config.TARGET_MODEL,
+        # max_results=100,
+        # site_id="MLA",
+        # condition="new",
+    ):
+        try:
+            page.update({"job_run": job_run, "endpoint": config.SEARCH_ENDPOINT})
+            output = ProductsQueryRawOutput(**page)
+            dbh.insert(output)
+        except Exception as e:
+            logger.error("Can't complete all requests: %s", e)
+
+
+def transformation() -> set[str]:
+    data: set[str] = set()
+    for raw_data in dbh.retrieve_data(ProductsQueryRawOutput):
+        data.update(get_product_ids(raw_data))
+    return data
 
 
 if __name__ == "__main__":
+    job_run: datetime = datetime.now(UTC)
     logger: logging.Logger = logging.getLogger(name="meli-data-ingestion")
     create_logging()
-credentials_data: Credentials = load_credentials_data(config.environment_settings)
+    logger.info("starting ETL process identified with job_run: %s", job_run)
+    dbh = DatabaseHandler(config.DATABASE_LOCATION)
+    dbh.setup()
+    # extraction()
+    ids = transformation()
+    extraction_itens(ids)

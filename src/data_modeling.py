@@ -1,6 +1,27 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, ClassVar, Protocol
+
+
+class PersistableEntity(Protocol):
+    entity_name: ClassVar[str]
+
+    def as_dict(self) -> dict[str, Any]: ...
+
+
+@dataclass
+class ProductsQueryRawOutput:
+    job_run: datetime
+    endpoint: str
+    keywords: str
+    results: dict[str, Any]
+    paging: dict[str, Any]
+    query_type: str
+    entity_name: ClassVar[str] = "bronze_products"
+
+    def as_dict(self):
+        return asdict(self)
 
 
 @dataclass
@@ -165,9 +186,12 @@ class Item:
 
 @dataclass
 class Credentials:
-    client_id: str | None
-    secret_key: str | None
-    access_token: str | None
-    refresh_token: str | None
-    access_token_expiration_date: str | None
-    refresh_token_expiration_date: str | None
+    client_id: str | None = None
+    secret_key: str | None = None
+    access_token: str | None = None
+    refresh_token: str | None = None
+    access_token_expiration_date: str | None = None
+    refresh_token_expiration_date: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
