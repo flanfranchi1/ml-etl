@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -15,7 +18,7 @@ class ProductsQueryRawOutput:
     job_run: datetime
     endpoint: str
     keywords: str
-    results: dict[str, Any]
+    results: list[dict[str, Any]]
     paging: dict[str, Any]
     query_type: str
     domain_id: str
@@ -188,6 +191,7 @@ class Item:
 @dataclass
 class CatalogProduct:
     id: str
+    job_run: datetime
     catalog_product_id: str
     status: str
     pdp_types: list[str]
@@ -218,6 +222,44 @@ class CatalogProduct:
     grouper_id: str | None
     experiments: dict[str, Any]
     entity_name: ClassVar[str] = "bronze_product_details"
+
+    @classmethod
+    def from_api_response(
+        cls, response: Mapping[str, Any], job_run: datetime
+    ) -> CatalogProduct:
+        return cls(
+            id=response["id"],
+            job_run=job_run,
+            catalog_product_id=response["catalog_product_id"],
+            status=response["status"],
+            pdp_types=response["pdp_types"],
+            domain_id=response["domain_id"],
+            permalink=response["permalink"],
+            name=response["name"],
+            family_name=response["family_name"],
+            type=response["type"],
+            buy_box_winner=response.get("buy_box_winner"),
+            pickers=response["pickers"],
+            pictures=response["pictures"],
+            description_pictures=response["description_pictures"],
+            main_features=response["main_features"],
+            disclaimers=response["disclaimers"],
+            attributes=response["attributes"],
+            short_description=response["short_description"],
+            parent_id=response.get("parent_id"),
+            children_ids=response["children_ids"],
+            settings=response["settings"],
+            quality_type=response["quality_type"],
+            release_info=response.get("release_info"),
+            presale_info=response.get("presale_info"),
+            enhanced_content=response.get("enhanced_content"),
+            tags=response["tags"],
+            date_created=response["date_created"],
+            authorized_stores=response.get("authorized_stores"),
+            last_updated=response["last_updated"],
+            grouper_id=response.get("grouper_id"),
+            experiments=response["experiments"],
+        )
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)

@@ -15,7 +15,9 @@ from sqlalchemy import (
     String,
     Table,
     create_engine,
+    inspect,
     select,
+    text,
 )
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import URL
@@ -43,10 +45,12 @@ class DatabaseHandler:
             Column("results", JSON, nullable=False),
             Column("paging", JSON, nullable=False),
             Column("query_type", String),
+            Column("domain_id", String),
         )
 
     def setup(self) -> None:
         self.metadata.create_all(self.engine)
+        self._add_missing_columns(self.bronze_products)
 
     def close(self) -> None:
         self.engine.dispose()
@@ -161,3 +165,32 @@ class DatabaseHandler:
             table = Table(entity_name, self.metadata, *columns)
 
         table.create(self.engine, checkfirst=True)
+        self._add_missing_columns(table)
+
+    def _add_missing_columns(self, table: Table) -> None:
+        existing_columns = {
+            column["name"] for column in inspect(self.engine).get_columns(table.name)
+        }
+        missing_columns = [
+            column for column in table.columns if column.name not in existing_columns
+        ]
+        if any(column.primary_key for column in missing_columns):
+            raise RuntimeError(
+                f"Cannot add a primary-key column to existing table {table.name}"
+            )
+
+        if not missing_columns:
+            return
+
+        preparer = self.engine.dialect.identifier_preparer
+        with self.engine.begin() as connection:
+            for column in missing_columns:
+                column_name = preparer.quote(column.name)
+                table_name = preparer.quote(table.name)
+                column_type = column.type.compile(dialect=self.engine.dialect)
+                connection.execute(
+                    text(
+                        f"ALTER TABLE {table_name} "
+                        f"ADD COLUMN {column_name} {column_type}"
+                    )
+                )

@@ -85,6 +85,8 @@ class CredentialStoreManager:
 ACCESS_TOKEN_REFRESH_ANTICIPATION_IN_MINUTES: int = 10
 TARGET_MODEL: str = "smartphone Samsung Galaxy A16 5g"
 PAGINATION_SIZE: int = 50
+MAX_RESULTS: int = 100
+DOMAIN_ID: str = "MLA-CELLPHONES"
 APPLICATION_ROOT_FOLDER: Path = Path().cwd()
 DATABASE_LOCATION = APPLICATION_ROOT_FOLDER.joinpath("data/database.db")
 DOT_ENV_FILE: Path = Path(APPLICATION_ROOT_FOLDER).joinpath(".env")

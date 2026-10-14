@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -137,19 +137,47 @@ class MercadoLibreClientHandler:
         max_results: int = 10_000,
         **kwargs: Any,
     ) -> Iterator[dict[str, Any]]:
-        limiter: int | None = None
-        current_offset: int = 0
-        while limiter is None or kwargs["offset"] < limiter:
-            kwargs.update({"offset": current_offset})
-            output: dict[str, Any] = self.get_data(url=url, **kwargs)
-            paging = output.get("paging", {})
-            results = output.get("results", [])
-            if isinstance(paging.get("total"), int):
-                limiter = min(max_results, paging["total"])
-            current_offset += pagination
+        if pagination <= 0:
+            raise ValueError("pagination must be greater than zero")
+        if max_results < 0:
+            raise ValueError("max_results cannot be negative")
+
+        current_offset = kwargs.pop("offset", 0)
+        if not isinstance(current_offset, int) or current_offset < 0:
+            raise ValueError("offset must be a non-negative integer")
+
+        total: int | None = None
+        fetched = 0
+        while fetched < max_results and (total is None or current_offset < total):
+            page_size = min(pagination, max_results - fetched)
+            params: dict[str, str | int] = {}
+            for key, value in kwargs.items():
+                if not isinstance(value, (str, int)):
+                    raise TypeError(
+                        f"query parameter {key!r} must be a string or integer"
+                    )
+                params[key] = value
+            params["offset"] = current_offset
+            params["limit"] = page_size
+            output = self.get_data(url=url, **params)
+            paging_value: Any = output.get("paging", {})
+            if not isinstance(paging_value, dict):
+                raise TypeError("paginated response 'paging' must be an object")
+            paging = cast(dict[str, Any], paging_value)
+            results_value: Any = output.get("results", [])
+            if not isinstance(results_value, list):
+                raise TypeError("paginated response 'results' must be a list")
+            results = cast(list[Any], results_value)
+            reported_total = paging.get("total")
+            if isinstance(reported_total, int):
+                total = reported_total
+
             yield output
 
             if not results:
                 break
 
-            kwargs.update({"offset": kwargs["offset"] + len(results)})
+            fetched += len(results)
+            current_offset += len(results)
+            if total is None and len(results) < page_size:
+                break
