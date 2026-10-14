@@ -1,4 +1,3 @@
-import csv
 import logging
 from datetime import UTC, datetime
 
@@ -28,35 +27,11 @@ def extraction():
     for page in ml_client.paginated_query(
         url=config.SEARCH_ENDPOINT,
         pagination=config.PAGINATION_SIZE,
-        offset=0,
         max_results=100,
         site_id="MLA",
         status="active",
         q=config.TARGET_MODEL,
         condition="new",
-    ):
-        try:
-            page.update({"job_run": job_run, "endpoint": config.SEARCH_ENDPOINT})
-            output = ProductsQueryRawOutput(**page)
-            dbh.insert(output)
-        except Exception as e:
-            logger.error("Can't complete all requests: %s", e)
-
-
-def extraction_itens(ids: set[str]):
-    csm: config.CredentialStoreManager = config.CredentialStoreManager(
-        config.DOT_ENV_FILE
-    )
-    ml_client: MercadoLibreClientHandler = MercadoLibreClientHandler(csm)
-    ml_client.ensure_access_token()
-    for page in ml_client.paginated_query(
-        url=config.ITENS_ENDPOINT,
-        pagination=config.PAGINATION_SIZE,
-        # offset=0,
-        keywords=config.TARGET_MODEL,
-        # max_results=100,
-        # site_id="MLA",
-        # condition="new",
     ):
         try:
             page.update({"job_run": job_run, "endpoint": config.SEARCH_ENDPOINT})
@@ -82,4 +57,3 @@ if __name__ == "__main__":
     dbh.setup()
     # extraction()
     ids = transformation()
-    extraction_itens(ids)

@@ -112,6 +112,7 @@ class MercadoLibreClientHandler:
             access_token_expiration_date=datetime.isoformat(
                 self.access_token_expiration_date
             ),
+            refresh_token=payload["refresh_token"],
         )
 
     def get_data(self, url: str, **kwargs: str | int) -> dict[str, Any]:
@@ -132,18 +133,20 @@ class MercadoLibreClientHandler:
     def paginated_query(
         self,
         url: str,
-        pagination: int | None = None,
+        pagination: int = 1_000_000,
         max_results: int = 10_000,
         **kwargs: Any,
     ) -> Iterator[dict[str, Any]]:
-        total_available: int | None = None
-
-        while total_available is None or kwargs["offset"] < total_available:
+        limiter: int | None = None
+        current_offset: int = 0
+        while limiter is None or kwargs["offset"] < limiter:
+            kwargs.update({"offset": current_offset})
             output: dict[str, Any] = self.get_data(url=url, **kwargs)
             paging = output.get("paging", {})
             results = output.get("results", [])
             if isinstance(paging.get("total"), int):
-                total_available = min(max_results, paging["total"])
+                limiter = min(max_results, paging["total"])
+            current_offset += pagination
             yield output
 
             if not results:
