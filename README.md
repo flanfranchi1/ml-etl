@@ -97,7 +97,7 @@ El método `paginated_query()` recibe el parámetro `pagination`, pero no lo uti
 
 ### Persistencia
 
-`DatabaseHandler` utiliza SQLAlchemy con SQLite. La única tabla declarada en sus metadatos es `bronze_products`, con la siguiente estructura:
+`DatabaseHandler` utiliza SQLAlchemy con SQLite. La tabla `bronze_products` se declara directamente en los metadatos y tiene la siguiente estructura:
 
 | Campo | Tipo SQLAlchemy | Nulabilidad |
 |---|---|---|
@@ -123,7 +123,11 @@ CREATE TABLE IF NOT EXISTS bronze_products (
 );
 ```
 
-El método `DatabaseHandler.setup()` crea la tabla a partir de los metadatos de SQLAlchemy. Como la ruta configurada incluye el directorio `data/`, ese directorio debe existir para que el archivo de la base de datos pueda crearse allí.
+La extracción también registra `CatalogProduct` como `bronze_product_details` mediante `DatabaseHandler.create_table()`. Sus columnas se derivan de los tipos de los campos de la dataclass: `id` es la clave primaria, los campos opcionales aceptan `NULL` y los campos de tipo diccionario o lista se almacenan como JSON. Esta tabla se crea en la base de datos al llamar a `create_table()`.
+
+`DatabaseHandler.insert()` realiza un upsert cuando el objeto contiene las columnas de clave primaria de su tabla: si ya existe una fila con esa clave, actualiza sus demás campos; de lo contrario, inserta una fila nueva. Esto permite volver a cargar un `CatalogProduct` con el mismo `id` sin provocar una violación de unicidad. Los registros de `bronze_products` no incluyen su `id` autogenerado, por lo que se insertan como filas nuevas.
+
+El método `DatabaseHandler.setup()` crea las tablas ya registradas en los metadatos. Como la ruta configurada incluye el directorio `data/`, ese directorio debe existir para que el archivo de la base de datos pueda crearse allí.
 
 El campo está escrito como `job_run` en el código. Aunque `src/main.py` define una marca de tiempo para la ejecución, el flujo actual no se ha validado de extremo a extremo para confirmar que todas las escrituras utilizan la misma marca de tiempo.
 

@@ -18,6 +18,7 @@ class ProductsQueryRawOutput:
     results: dict[str, Any]
     paging: dict[str, Any]
     query_type: str
+    domain_id: str
     entity_name: ClassVar[str] = "bronze_products"
 
     def as_dict(self):
@@ -185,6 +186,44 @@ class Item:
 
 
 @dataclass
+class CatalogProduct:
+    id: str
+    catalog_product_id: str
+    status: str
+    pdp_types: list[str]
+    domain_id: str
+    permalink: str
+    name: str
+    family_name: str
+    type: str
+    buy_box_winner: dict[str, Any] | None
+    pickers: dict[str, Any]
+    pictures: list[dict[str, Any]]
+    description_pictures: list[dict[str, Any]]
+    main_features: list[dict[str, Any]]
+    disclaimers: list[Any]
+    attributes: list[dict[str, Any]]
+    short_description: dict[str, Any]
+    parent_id: str | None
+    children_ids: list[str]
+    settings: dict[str, Any]
+    quality_type: str
+    release_info: dict[str, Any] | None
+    presale_info: dict[str, Any] | None
+    enhanced_content: dict[str, Any] | list[Any] | None
+    tags: list[str]
+    date_created: str
+    authorized_stores: list[dict[str, Any]] | None
+    last_updated: str
+    grouper_id: str | None
+    experiments: dict[str, Any]
+    entity_name: ClassVar[str] = "bronze_product_details"
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
 class Credentials:
     client_id: str | None = None
     secret_key: str | None = None
@@ -192,6 +231,3 @@ class Credentials:
     refresh_token: str | None = None
     access_token_expiration_date: str | None = None
     refresh_token_expiration_date: str | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)

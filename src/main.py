@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 import config
 from api import MercadoLibreClientHandler
 from data_management import DatabaseHandler
-from data_modeling import ProductsQueryRawOutput
+from data_modeling import CatalogProduct, ProductsQueryRawOutput
 from transformations import get_product_ids
 
 
@@ -25,11 +25,12 @@ def extraction():
     ml_client: MercadoLibreClientHandler = MercadoLibreClientHandler(csm)
     ml_client.ensure_access_token()
     for page in ml_client.paginated_query(
-        url=config.SEARCH_ENDPOINT,
+        url=config.CATALOG_SEARCH_ENDPOINT,
         pagination=config.PAGINATION_SIZE,
         max_results=100,
         site_id="MLA",
         status="active",
+        domain_id="MLA-CELLPHONES",
         q=config.TARGET_MODEL,
         condition="new",
     ):
@@ -39,6 +40,16 @@ def extraction():
             dbh.insert(output)
         except Exception as e:
             logger.error("Can't complete all requests: %s", e)
+        products_ids: set[str] = set()
+        dbh.create_table(CatalogProduct)
+        for page in dbh.retrieve_data(ProductsQueryRawOutput):
+            products_ids.update(get_product_ids(page))
+        for product in list(products_ids):
+            output = ml_client.get_data(
+                url=f"{config.PRODUCT_DETAILS}/{product}",
+            )
+            print(product)
+            dbh.insert(CatalogProduct(**output))
 
 
 def transformation() -> set[str]:
@@ -55,5 +66,5 @@ if __name__ == "__main__":
     logger.info("starting ETL process identified with job_run: %s", job_run)
     dbh = DatabaseHandler(config.DATABASE_LOCATION)
     dbh.setup()
-    # extraction()
-    ids = transformation()
+    extraction()
+    # ids = transformation()
